@@ -16,18 +16,18 @@
 #define MAX_USERS 50 // max number of users
 static unsigned int users_count = 0; // number of registered users
 
-static user_info_t *listOfUsers[MAX_USERS] = {0}; // list of users
+static user_info_t *listOfUsers[MAX_USERS] = {NULL}; // list of users
 
 
 /* Add user to userList */
-void user_add(user_info_t *user);
+void user_add(const user_info_t *user);
 /* Get user name from userList */
-char * get_username(int sockfd);
+char * get_username(const int sockfd);
 /* Get user sockfd by name */
-int get_sockfd(char *name);
+int get_sockfd(const char *name);
 
 /* Add user to userList */
-void user_add(user_info_t *user){
+void user_add(const user_info_t *user){
 	if(users_count ==  MAX_USERS){
 		printf("sorry the system is full, please try again later\n");
 		return;
@@ -35,49 +35,71 @@ void user_add(user_info_t *user){
 	/***************************/
 	/* add the user to the list */
 	/**************************/
-
+	// listOfUsers[users_count]->password = user->password;
+	strcpy(listOfUsers[users_count]->username, user->username);
+	listOfUsers[users_count]->sockfd = user->sockfd;
+	listOfUsers[users_count]->state = user->state;
+	users_count += 1;
 }
 
 /* Determine whether the user has been registered  */
-int isNewUser(char* name) {
+//return value: 1 means this is new user based on the name, 0 means the name is already registered
+int isNewUser(const char* name) {
 	int i;
-	int flag = -1;
+	int flag = 1;
 	/*******************************************/
 	/* Compare the name with existing usernames */
 	/*******************************************/
-
-
-
-
+	for (i = 0; i < MAX_USERS; i++)
+	{
+		if(listOfUsers[i] == NULL)
+			break;
+		if (strcmp(listOfUsers[i]->username, name) == 0)
+		{
+			flag = 0; // find the registered user -> set the flag to be 0
+			break;
+		}
+	}
 	return flag;
 }
 
 /* Get user name from userList */
-char * get_username(int ss){
+char * get_username(const int ss){
 	int i;
 	static char uname[MAX];
 	/*******************************************/
 	/* Get the user name by the user's sock fd */
 	/*******************************************/
-
-
+	for (i = 0; i < MAX_USERS; i++)
+	{
+		if(listOfUsers[i] == NULL)
+			break;
+		if (listOfUsers[i]->sockfd == ss)
+			break;
+	}
+	strcpy(uname, listOfUsers[users_count]->username);
 	printf("get user name: %s\n", uname);
 	return uname;
 }
 
 /* Get user sockfd by name */
-int get_sockfd(char *name){
+int get_sockfd(const char *name){
 	int i;
 	int sock;
 	/*******************************************/
 	/* Get the user sockfd by the user name */
 	/*******************************************/
-
-
-
-
+	for (i = 0; i < MAX_USERS; i++)
+	{
+		if(listOfUsers[i] == NULL)
+			break;
+		if (strcmp(listOfUsers[i]->username, name) == 0)
+			break;
+	}
+	sock = listOfUsers[i]->sockfd;
 	return sock;
 }
+
 // The following two functions are defined for poll()
 // Add a new file descriptor to the set
 void add_to_pfds(struct pollfd* pfds[], int newfd, int* fd_count, int* fd_size)
@@ -94,6 +116,7 @@ void add_to_pfds(struct pollfd* pfds[], int newfd, int* fd_count, int* fd_size)
 
 	(*fd_count)++;
 }
+
 // Remove an index from the set
 void del_from_pfds(struct pollfd pfds[], int i, int* fd_count)
 {
@@ -102,7 +125,6 @@ void del_from_pfds(struct pollfd pfds[], int i, int* fd_count)
 
 	(*fd_count)--;
 }
-
 
 
 int main(){
@@ -119,14 +141,27 @@ int main(){
 	
 	int yes=1;        // for setsockopt() SO_REUSEADDR, below
     int i, j, u, rv;
-
     
 	/**********************************************************/
 	/*create the listener socket and bind it with server_addr*/
 	/**********************************************************/
-	
-
-
+	listener = socket(AF_INET, SOCK_STREAM, 0);
+	if (listen == -1)
+	{
+		perror("listener construction");
+		exit(0);
+	}else
+		printf("Socket successfully created..");
+	bzero(&server_addr, sizeof(server_addr));
+	server_addr.sin_family = AF_INET;
+	server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+	server_addr.sin_port = htons(PORT);
+	if (bind(listener, (struct sockaddr*)&server_addr, sizeof(server_addr)) == -1)
+	{
+		perror("Server socket binding");
+		exit(0);
+	}else
+		printf("Socket successfully binded..");
 
 	// Now server is ready to listen and verification
 	if ((listen(listener, 5)) != 0) {
@@ -146,183 +181,221 @@ int main(){
 		/***************************************/
 		/* use poll function */
 		/**************************************/
-
+		int poll_count = poll(pfds, fd_count, -1);
+		if (poll_count == -1)
+		{
+			perror("poll");
+			exit(1);
+		}
 
 		// run through the existing connections looking for data to read
-        	for(i = 0; i < fd_count; i++) {
-            	  if (pfds[i].revents & POLLIN) { // we got one!!
-                    if (pfds[i].fd == listener) {
-                      /**************************/
-					  /* we are the listener and we need to handle new connections from clients */
-					  /****************************/
+		for(i = 0; i < fd_count; i++) {
+			if (pfds[i].revents & POLLIN) { // we got one!!
+				if (pfds[i].fd == listener) {
+					/**************************/
+					/* we are the listener and we need to handle new connections from clients */
+					/****************************/
+					addr_size = sizeof(client_addr);
+					int client_socket = accept(pfds[i].fd, (struct sockaddr*)&client_addr, &addr_size);					
+					if (client_socket == -1)
+						perror("accept");
+					else
+						add_to_pfds(pfds, client_socket, &fd_count, &fd_size);
 
+					// send welcome message
+					bzero(buffer, sizeof(buffer));
+					strcpy(buffer, "Welcome to the chat room!\nPlease enter a nickname.\n");
+					if (send(newfd, buffer, sizeof(buffer), 0) == -1)
+						perror("send");
+				}
+			} else {
+				// handle data from a client
+				bzero(buffer, sizeof(buffer));
+				if ((nbytes = recv(pfds[i].fd, buffer, sizeof(buffer), 0)) <= 0) {
+					// got error or connection closed by client
+					if (nbytes == 0) {
+					// connection closed
+					printf("pollserver: socket %d hung up\n", pfds[i].fd);
+					} else {
+					perror("recv");
+					}
+					close(pfds[i].fd); // Bye!
+					del_from_pfds(pfds, i, &fd_count);
+				} else {
+					// we got some data from a client
+					if (strncmp(buffer, "REGISTER", 8)==0){
+						printf("Got register/login message\n");
+						/********************************/
+						/* Get the user name and add the user to the userlist*/
+						/**********************************/
+						char name[C_NAME_LEN] = {0};
+						strcpy(name, buffer);
+						char user_file[C_NAME_LEN] = {0};
+						strcpy(user_file, name);
+						strcat(user_file, ".txt");
 
-                      
+						if (isNewUser(name) == 1) {
+							/********************************/
+							/* it is a new user and we need to handle the registration*/
+							/**********************************/
+							user_info_t user;
+							user.sockfd = pfds[i].fd;
+							user.state = ONLINE;
+							strcpy(user.username, name);
+							user_add(&user);
+							/********************************/
+							/* create message box (e.g., a text file) for the new user */
+							/**********************************/
+							FILE* fp;
+							fp = fopen(user_file, "w"); // create <name>.txt file to store the offline messages
 
+							// broadcast the welcome message (send to everyone except the listener)
+							bzero(buffer, sizeof(buffer));
+							strcpy(buffer, "Welcome ");
+							strcat(buffer, name);
+							strcat(buffer, " to join the chat room!\n");
 
-						// send welcome message
+							/*****************************/
+							/* Broadcast the welcome message*/
+							/*****************************/
+							for (j = 0; j < MAX_USERS; j++)
+							{
+								nbytes = send(listOfUsers[j]->sockfd, buffer, sizeof(buffer), 0);
+								if (nbytes < 1)
+									perror("server sending");
+							}
+
+							/*****************************/
+							/* send registration success message to the new user*/
+							/*****************************/
+							bzero(buffer, sizeof(buffer));
+							strcpy(buffer, "A new account has been created.");
+							nbytes = send(pfds[i].fd, buffer, sizeof(buffer), 0);
+							if (nbytes < 1)
+								perror("server sending");
+
+						} else {
+							/********************************/
+							/* it's an existing user and we need to handle the login. Note the state of user,*/
+							/**********************************/
+							for (j = 0; j < MAX_USERS; j++)
+							{
+								if (listOfUsers[j] == NULL)
+									break;
+								if (listOfUsers[j]->sockfd == pfds[i].fd)
+								{
+									listOfUsers[j]->state = ONLINE;
+									break;
+								}
+							}
+
+							/********************************/
+							/* send the offline messages to the user and empty the message box*/
+							/**********************************/
+							FILE* fp = fopen(user_file, "r");
+							//@TODO: read the file line by line and clean the whole file at the end
+
+							// broadcast the welcome message (send to everyone except the listener)
+							bzero(buffer, sizeof(buffer));
+							strcat(buffer, name);
+							strcat(buffer, " is online!\n");
+							/*****************************/
+							/* Broadcast the welcome message*/
+							/*****************************/
+						}
+					}
+					else if (strncmp(buffer, "EXIT", 4)==0){
+						printf("Got exit message. Removing user from system\n");
+						// send leave message to the other members
 						bzero(buffer, sizeof(buffer));
-						strcpy(buffer, "Welcome to the chat room!\nPlease enter a nickname.\n");
-						if (send(newfd, buffer, sizeof(buffer), 0) == -1)
+						strcpy(buffer, get_username(pfds[i].fd));
+						strcat(buffer, " has left the chatroom\n");
+						/*********************************/
+						/* Broadcast the leave message to the other users in the group*/
+						/**********************************/
+
+
+						/*********************************/
+						/* Change the state of this user to offline*/
+						/**********************************/
+
+						
+						//close the socket and remove the socket from pfds[]
+						close(pfds[i].fd);
+						del_from_pfds(pfds, i, &fd_count);
+					}
+					else if (strncmp(buffer, "WHO", 3)==0){
+						// concatenate all the user names except the sender into a char array
+						printf("Got WHO message from client.\n");
+						char ToClient[MAX];
+						bzero(ToClient, sizeof(ToClient));
+						/***************************************/
+						/* Concatenate all the user names into the tab-separated char ToClient and send it to the requesting client*/
+						/* The state of each user (online or offline)should be labelled.*/
+						/***************************************/
+
+
+
+
+					}
+					else if (strncmp(buffer, "#", 1)==0){
+						// send direct message 
+						// get send user name:
+						printf("Got direct message.\n");
+						// get which client sends the message
+						char sendname[MAX];
+						// get the destination username
+						char destname[MAX];
+						// get dest sock
+						int destsock;
+						// get the message
+						char msg[MAX];
+						/**************************************/
+						/* Get the source name xx, the target username and its sockfd*/
+						/*************************************/
+
+
+						if (destsock == -1) {
+							/**************************************/
+							/* The target user is not found. Send "no such user..." messsge back to the source client*/
+							/*************************************/
+
+						}
+						else {
+							// The target user exists.
+							// concatenate the message in the form "xx to you: msg"
+							char sendmsg[MAX];
+							strcpy(sendmsg, sendname);
+							strcat(sendmsg, " to you: ");
+							strcat(sendmsg, msg);
+
+							/**************************************/
+							/* According to the state of target user, send the msg to online user or write the msg into offline user's message box*/
+							/* For the offline case, send "...Leaving message successfully" message to the source client*/
+							/*************************************/
+						
+						}
+						
+						
+
+						if (send(destsock, sendmsg, sizeof(sendmsg), 0) == -1){
 							perror("send");
-                      }
-                    } else {
-                        // handle data from a client
-						bzero(buffer, sizeof(buffer));
-                        if ((nbytes = recv(pfds[i].fd, buffer, sizeof(buffer), 0)) <= 0) {
-                          // got error or connection closed by client
-                          if (nbytes == 0) {
-                            // connection closed
-                            printf("pollserver: socket %d hung up\n", pfds[i].fd);
-                          } else {
-                            perror("recv");
-                          }
-						  close(pfds[i].fd); // Bye!
-						  del_from_pfds(pfds, i, &fd_count);
-                        } else {
-                            // we got some data from a client
-							if (strncmp(buffer, "REGISTER", 8)==0){
-								printf("Got register/login message\n");
-								/********************************/
-								/* Get the user name and add the user to the userlist*/
-								/**********************************/
-								if (isNewUser(name) == -1) {
-									/********************************/
-									/* it is a new user and we need to handle the registration*/
-									/**********************************/
+						}
 
-									/********************************/
-									/* create message box (e.g., a text file) for the new user */
-									/**********************************/
+					}
+					else{
+						printf("Got broadcast message from user\n");
+						/*********************************************/
+						/* Broadcast the message to all users except the one who sent the message*/
+						/*********************************************/
 
+						
+					}   
 
-									// broadcast the welcome message (send to everyone except the listener)
-									bzero(buffer, sizeof(buffer));
-									strcpy(buffer, "Welcome ");
-									strcat(buffer, name);
-									strcat(buffer, " to join the chat room!\n");
-									/*****************************/
-									/* Broadcast the welcome message*/
-									/*****************************/
-
-
-
-									/*****************************/
-									/* send registration success message to the new user*/
-									/*****************************/
-								}
-								else {
-									/********************************/
-									/* it's an existing user and we need to handle the login. Note the state of user,*/
-									/**********************************/
-									
-									/********************************/
-									/* send the offline messages to the user and empty the message box*/
-									/**********************************/
-								
-
-
-									// broadcast the welcome message (send to everyone except the listener)
-									bzero(buffer, sizeof(buffer));
-									strcat(buffer, name);
-									strcat(buffer, " is online!\n");
-									/*****************************/
-									/* Broadcast the welcome message*/
-									/*****************************/
-								}
-							}
-							else if (strncmp(buffer, "EXIT", 4)==0){
-								printf("Got exit message. Removing user from system\n");
-								// send leave message to the other members
-                                bzero(buffer, sizeof(buffer));
-								strcpy(buffer, get_username(pfds[i].fd));
-								strcat(buffer, " has left the chatroom\n");
-								/*********************************/
-								/* Broadcast the leave message to the other users in the group*/
-								/**********************************/
-
-
-								/*********************************/
-								/* Change the state of this user to offline*/
-								/**********************************/
-
-								
-								//close the socket and remove the socket from pfds[]
-								close(pfds[i].fd);
-								del_from_pfds(pfds, i, &fd_count);
-							}
-							else if (strncmp(buffer, "WHO", 3)==0){
-								// concatenate all the user names except the sender into a char array
-								printf("Got WHO message from client.\n");
-								char ToClient[MAX];
-								bzero(ToClient, sizeof(ToClient));
-								/***************************************/
-								/* Concatenate all the user names into the tab-separated char ToClient and send it to the requesting client*/
-								/* The state of each user (online or offline)should be labelled.*/
-								/***************************************/
-
-
-
-
-							}
-							else if (strncmp(buffer, "#", 1)==0){
-								// send direct message 
-								// get send user name:
-								printf("Got direct message.\n");
-								// get which client sends the message
-								char sendname[MAX];
-								// get the destination username
-								char destname[MAX];
-								// get dest sock
-								int destsock;
-								// get the message
-								char msg[MAX];
-								/**************************************/
-								/* Get the source name xx, the target username and its sockfd*/
-								/*************************************/
-
-
-								if (destsock == -1) {
-									/**************************************/
-									/* The target user is not found. Send "no such user..." messsge back to the source client*/
-									/*************************************/
-
-								}
-								else {
-									// The target user exists.
-									// concatenate the message in the form "xx to you: msg"
-									char sendmsg[MAX];
-									strcpy(sendmsg, sendname);
-									strcat(sendmsg, " to you: ");
-									strcat(sendmsg, msg);
-
-									/**************************************/
-									/* According to the state of target user, send the msg to online user or write the msg into offline user's message box*/
-									/* For the offline case, send "...Leaving message successfully" message to the source client*/
-									/*************************************/
-								
-								}
-								
-								
-
-								if (send(destsock, sendmsg, sizeof(sendmsg), 0) == -1){
-									perror("send");
-								}
-
-							}
-							else{
-								printf("Got broadcast message from user\n");
-								/*********************************************/
-								/* Broadcast the message to all users except the one who sent the message*/
-								/*********************************************/
-
-								
-							}   
-
-                        }
-                    } // end handle data from client
-                  } // end got new incoming connection
-                } // end looping through file descriptors
+				}
+			} // end handle data from client
+			} // end got new incoming connection
+			} // end looping through file descriptors
         } // end for(;;) 
 		
 
