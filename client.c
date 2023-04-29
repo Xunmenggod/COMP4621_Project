@@ -84,7 +84,10 @@ int main(){
 	char user_name[C_NAME_LEN] = {0};
 	printf("Please enter a nickname.");
 	scanf("%s", user_name, sizeof(user_name));
-	nbytes = send(sockfd, user_name, sizeof(user_name), 0);
+	bzero(buffer, sizeof(buffer));
+	strcpy(buffer, "REGISTER ");
+	strcat(buffer, user_name);
+	nbytes = send(sockfd, buffer, sizeof(buffer), 0);
 	if (nbytes < 1) 
 	{
 		perror("send");
