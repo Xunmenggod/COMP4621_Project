@@ -16,9 +16,11 @@ make
 | Task | Status | Issues(if any)|
 | :---: | :---: | :---: |
 | Registration| DONE| NULL|
-| Broadcasting for new user| DONE| NULL|
+| Login| DONE| NULL|
+| Welcome for new user and login back| DONE| NULL|
 | Online direct message| DONE| NULL|
 | Offline direct message| DONE| NULL|
-| EXIT| bug exits| The state was not changed to `OFFLINE`|
+| EXIT| bug exits| The state was not changed to `OFFLINE` (Fixed)|
 | WHO| DONE| NULL|
-| OFFLINE message retrieval| Unknown| Unknown|
+| OFFLINE message retrieval| DONE| NULL|
+| Broadcasting message| DONE| NULL|

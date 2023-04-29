@@ -394,6 +394,9 @@ int main(){
 								char offline_message[MAX];
 								while (fgets(offline_message, MAX, fp) != NULL)
 								{
+									int n = 0;
+									while (offline_message[n++] != '\n');
+									offline_message[n - 1] = '\0';
 									nbytes = send(pfds[i].fd, offline_message, sizeof(offline_message), 0);
 									if (nbytes < 1)
 										perror("sedning offline message");
@@ -408,7 +411,7 @@ int main(){
 								// broadcast the welcome message (send to everyone except the listener)
 								bzero(buffer, sizeof(buffer));
 								strcat(buffer, name);
-								strcat(buffer, " is online!\n");
+								strcat(buffer, " is online!");
 								/*****************************/
 								/* Broadcast the welcome message*/
 								/*****************************/
@@ -438,7 +441,7 @@ int main(){
 								{
 									listOfUsers[j]->state = OFFLINE;
 									// for debug
-									printf("Exit user name:%s \t state:%d", listOfUsers[j]->username, listOfUsers[j]->state);
+									printf("Exit user name:%s \t state:%d\n", listOfUsers[j]->username, listOfUsers[j]->state);
 									break;
 								}
 							}
@@ -462,7 +465,7 @@ int main(){
 								if (strcmp(get_username(pfds[i].fd),listOfUsers[j]->username) == 0)
 									continue;
 								strcat(ToClient, listOfUsers[j]->username);
-								if (listOfUsers[j]->state == ONLINE);
+								if (listOfUsers[j]->state == ONLINE)
 									strcat(ToClient, "*");
 								strcat(ToClient, "\t");
 							}
@@ -542,7 +545,7 @@ int main(){
 											}else
 											{
 												fseek(fp, 0, SEEK_END);
-												// strcat(sendmsg, "\n");
+												strcat(sendmsg, "\n");
 												if (fprintf(fp, sendmsg) < 1)
 													perror("message box appending");
 												fclose(fp);
@@ -565,6 +568,9 @@ int main(){
 							/*********************************************/
 							// for debug
 							printf("broadcasting name:%s \t broadcasting message:%s", get_username(pfds[i].fd), buffer);
+							int n = 0;
+							while(buffer[n++] != '\n');
+							buffer[n - 1] = '\0';
 							broadcast(buffer, sizeof(buffer), pfds[i].fd, OTHERS);
 							
 						}   

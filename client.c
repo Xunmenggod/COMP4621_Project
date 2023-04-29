@@ -141,7 +141,7 @@ int main(){
 				perror("close");
 				exit(0);
 			}else
-				printf("It's OK to close the window Now OR enter ctrl+c\n");
+				printf("It's OK to close the window Now OR enter ctrl+c");
 		}
 		else if (strncmp(buffer, "WHO", 3) == 0) {
 			printf("Getting user list, pls hold on...\n");
@@ -164,12 +164,7 @@ int main(){
 			/**************************************/
 			char prefix[MAX] = {0};
 			strcpy(prefix, user_name);
-			prefix[strlen(user_name) + 1] = ':';
-			prefix[strlen(user_name) + 2] = ' ';
-			prefix[strlen(user_name) + 3] = '\n';
-			prefix[strlen(user_name) + 4] = '\0';
-			// for debug
-			printf("user_name: %s, length: %d\n", user_name, (int)strlen(user_name));
+			strcat(prefix, ": ");
 			strcat(prefix, buffer);
 			nbytes = send(sockfd, prefix, sizeof(prefix), 0);
 			if (nbytes < 1)

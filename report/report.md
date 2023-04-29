@@ -1,4 +1,4 @@
-# **COMP4621 Project Report (MULTI)**
+# **COMP4621 Project Report (Multiparty Chatroom)**
 
     ZHAO Yu Xuan (20497819)
 
