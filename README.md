@@ -9,6 +9,7 @@ make
 ```
 
 ## Run
+*Notice: Please ensure you are under the build directory*
 - Firstly run the server by typing `./server`
 - Then you could go with the interaction between server in other terminal windows
 
