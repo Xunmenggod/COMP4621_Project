@@ -36,6 +36,7 @@ void user_add(const user_info_t *user){
 	/* add the user to the list */
 	/**************************/
 	// listOfUsers[users_count]->password = user->password;
+	listOfUsers[users_count] = malloc(sizeof(user_info_t));
 	strcpy(listOfUsers[users_count]->username, user->username);
 	listOfUsers[users_count]->sockfd = user->sockfd;
 	listOfUsers[users_count]->state = user->state;
@@ -77,9 +78,11 @@ char * get_username(const int ss){
 		if (listOfUsers[i]->state == OFFLINE)
 			continue;
 		if (listOfUsers[i]->sockfd == ss)
+		{	
+			strcpy(uname, listOfUsers[i]->username);
 			break;
+		}
 	}
-	strcpy(uname, listOfUsers[users_count]->username);
 	printf("get user name: %s\n", uname);
 	return uname;
 }
@@ -187,17 +190,17 @@ int broadcast(const char* message, const int size, const int sending_client_fd, 
 				FILE* fp = fopen(user_file, "a");
 				if (fp == NULL)
 				{
-					printf("Could not find the user message box for %s", listOfUsers[i]->username);
+					printf("Could not find the user message box for %s \n", listOfUsers[i]->username);
 					return 0;
 				}else
 				{
 					fseek(fp, 0, SEEK_END);
 					char file_message[MAX] = {0};
-					char name[C_NAME_LEN] = get_username(sending_client_fd);
-					strcat(name, ": ");
-					strcpy(file_message, name);
+					// char* name = get_username(sending_client_fd);
+					// strcat(name, ": ");
+					// strcpy(file_message, name);
 					strcat(file_message, message);
-					strcat(file_message, "\n");
+					// strcat(file_message, "\n");
 					result = fprintf(fp, file_message);
 					fclose(fp);
 				}
@@ -218,7 +221,7 @@ int main(){
 	int nbytes;
 	int fd_count = 0;
 	int fd_size = 5;
-	struct pollfd* pfds = malloc(sizeof * pfds * fd_size);
+	struct pollfd* pfds = malloc(sizeof(*pfds) * fd_size);
 	
 	int yes=1;        // for setsockopt() SO_REUSEADDR, below
     int i, j, u, rv;
@@ -227,12 +230,15 @@ int main(){
 	/*create the listener socket and bind it with server_addr*/
 	/**********************************************************/
 	listener = socket(AF_INET, SOCK_STREAM, 0);
-	if (listen == -1)
+	if (listener == -1)
 	{
 		perror("listener construction");
 		exit(0);
 	}else
-		printf("Socket successfully created..");
+		printf("Socket successfully created..\n");
+	// use the setsockopt to reuse the port
+	if (setsockopt(listener, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int)) < 0)
+		perror("ste reusable address socket failed");
 	bzero(&server_addr, sizeof(server_addr));
 	server_addr.sin_family = AF_INET;
 	server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
@@ -242,7 +248,7 @@ int main(){
 		perror("Server socket binding");
 		exit(0);
 	}else
-		printf("Socket successfully binded..");
+		printf("Socket successfully binded..\n");
 
 	// Now server is ready to listen and verification
 	if ((listen(listener, 5)) != 0) {
@@ -277,17 +283,18 @@ int main(){
 					/* we are the listener and we need to handle new connections from clients */
 					/****************************/
 					addr_size = sizeof(client_addr);
-					int client_socket = accept(pfds[i].fd, (struct sockaddr*)&client_addr, &addr_size);					
-					if (client_socket == -1)
+					newfd = accept(pfds[i].fd, (struct sockaddr*)&client_addr, &addr_size);		
+					if (newfd == -1)
 						perror("accept");
 					else
-						add_to_pfds(pfds, client_socket, &fd_count, &fd_size);
+						add_to_pfds(&pfds, newfd, &fd_count, &fd_size);
 
 					// send welcome message
 					bzero(buffer, sizeof(buffer));
-					strcpy(buffer, "Welcome to the chat room!\nPlease enter a nickname.\n");
+					strcpy(buffer, "Welcome to the chat room!\nPlease enter a nickname.");
 					if (send(newfd, buffer, sizeof(buffer), 0) == -1)
 						perror("send");
+
 				} else {
 					// handle data from a client
 					bzero(buffer, sizeof(buffer));
@@ -330,7 +337,7 @@ int main(){
 								user.state = ONLINE;
 								strcpy(user.username, name);
 								user_add(&user);
-								printf("add user name: %s", name);
+								printf("add user name: %s\n", name);
 								/********************************/
 								/* create message box (e.g., a text file) for the new user */
 								/**********************************/
@@ -341,7 +348,7 @@ int main(){
 								bzero(buffer, sizeof(buffer));
 								strcpy(buffer, "Welcome ");
 								strcat(buffer, name);
-								strcat(buffer, " to join the chat room!\n");
+								strcat(buffer, " to join the chat room!");
 
 								/*****************************/
 								/* Broadcast the welcome message*/
@@ -384,14 +391,14 @@ int main(){
 									perror("sending");
 								FILE* fp = fopen(user_file, "r");
 								FILE* temp = fopen("temp.txt", "w");
-								char* offline_message[MAX];
+								char offline_message[MAX];
 								while (fgets(offline_message, MAX, fp) != NULL)
 								{
 									nbytes = send(pfds[i].fd, offline_message, sizeof(offline_message), 0);
 									if (nbytes < 1)
 										perror("sedning offline message");
 									else
-										printf("offline message: %s", offline_message);
+										printf("offline message: %s\n", offline_message);
 								}
 								fclose(fp);
 								fclose(temp);
@@ -412,7 +419,7 @@ int main(){
 							// send leave message to the other members
 							bzero(buffer, sizeof(buffer));
 							strcpy(buffer, get_username(pfds[i].fd));
-							strcat(buffer, " has left the chatroom\n");
+							strcat(buffer, " has left the chatroom");
 							/*********************************/
 							/* Broadcast the leave message to the other users in the group*/
 							/**********************************/
@@ -430,6 +437,8 @@ int main(){
 								if (listOfUsers[j]->sockfd == pfds[i].fd)
 								{
 									listOfUsers[j]->state = OFFLINE;
+									// for debug
+									printf("Exit user name:%s \t state:%d", listOfUsers[j]->username, listOfUsers[j]->state);
 									break;
 								}
 							}
@@ -450,6 +459,8 @@ int main(){
 							{
 								if (listOfUsers[j] == NULL)
 									break;
+								if (strcmp(get_username(pfds[i].fd),listOfUsers[j]->username) == 0)
+									continue;
 								strcat(ToClient, listOfUsers[j]->username);
 								if (listOfUsers[j]->state == ONLINE);
 									strcat(ToClient, "*");
@@ -482,6 +493,9 @@ int main(){
 							strcpy(destname, target_name);
 							char* sendingMsg = strtok(NULL, symbol);
 							strcpy(msg, sendingMsg);
+							int n = 0;
+							while (msg[n++] != '\n');
+							msg[n - 1] = '\0';
 
 							if (isNewUser(destname)) {
 								/**************************************/
@@ -524,10 +538,11 @@ int main(){
 											FILE* fp = fopen(user_file, "a");
 											if (fp == NULL)
 											{
-												printf("Could not find the user message box for %s", destname);
+												printf("Could not find the user message box for %s\n", destname);
 											}else
 											{
 												fseek(fp, 0, SEEK_END);
+												// strcat(sendmsg, "\n");
 												if (fprintf(fp, sendmsg) < 1)
 													perror("message box appending");
 												fclose(fp);
@@ -548,6 +563,8 @@ int main(){
 							/*********************************************/
 							/* Broadcast the message to all users except the one who sent the message*/
 							/*********************************************/
+							// for debug
+							printf("broadcasting name:%s \t broadcasting message:%s", get_username(pfds[i].fd), buffer);
 							broadcast(buffer, sizeof(buffer), pfds[i].fd, OTHERS);
 							
 						}   

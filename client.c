@@ -36,7 +36,7 @@ void recv_server_msg_handler() {
 		{
 			bzero(rec_buffer, sizeof(rec_buffer));
 			int recieveBytes = recv(sockfd, rec_buffer, sizeof(rec_buffer), 0);
-			printf("%s", rec_buffer);
+			printf("%s\n", rec_buffer);
 		}
 	}
 }
@@ -56,7 +56,7 @@ int main(){
 		perror("client socket construction");
 		exit(0); //@TODO: bonus pt for the interruption handling
 	}else
-		printf("Socket successfully created...");
+		printf("Socket successfully created...\n");
 	bzero(&server_addr, sizeof(server_addr));
 	server_addr.sin_family = AF_INET;
 	server_addr.sin_addr.s_addr = inet_addr("127.0.0.1"); // the server address is the loopback addr
@@ -67,7 +67,7 @@ int main(){
 		perror("connecting");
 		exit(0);
 	}else
-		printf("Connected to the server...");
+		printf("Connected to the server...\n");
 
 	generate_menu();
 	// recieve welcome message to enter the nickname
@@ -75,15 +75,16 @@ int main(){
     if (nbytes = recv(sockfd, buffer, sizeof(buffer), 0)==-1){
         perror("recv");
     }
-    printf("%s", buffer);
+    printf("%s\n", buffer);
 
 	/*************************************/
 	/* Input the nickname and send a message to the server */
 	/* Note that we concatenate "REGISTER" before the name to notify the server it is the register/login message*/
 	/*******************************************/
 	char user_name[C_NAME_LEN] = {0};
-	printf("Please enter a nickname.");
-	scanf("%s", user_name, sizeof(user_name));
+	n = 0;
+	while ((user_name[n++] = getchar()) != '\n');
+	user_name[n - 1] = '\0';
 	bzero(buffer, sizeof(buffer));
 	strcpy(buffer, "REGISTER ");
 	strcat(buffer, user_name);
@@ -94,24 +95,24 @@ int main(){
 		close(sockfd);
 		exit(0);
 	}else
-		printf("Register/Login message sent to server");
+		printf("Register/Login message sent to server\n\n");
 
     // receive welcome message "welcome xx to joint the chatroom. A new account has been created." (registration case) or "welcome back! The message box contains:..." (login case)
     bzero(buffer, sizeof(buffer));
     if (recv(sockfd, buffer, sizeof(buffer), 0)==-1){
         perror("recv");
     }
-    printf("%s", buffer);
+    printf("%s\n", buffer);
 
     /*****************************************************/
 	/* Create a thread to receive message from the server*/
 	/* pthread_t recv_server_msg_thread;*/
 	/*****************************************************/
 	pthread_t rec_thread_handler;
-	int ret_thread = -1000;
+	int ret_thread = pthread_create(&rec_thread_handler, NULL, recv_server_msg_handler, NULL);
 	if (ret_thread != 0)
 	{
-		printf("Pthread creation failed with return value %d", ret_thread);
+		printf("Pthread creation failed with return value %d\n", ret_thread);
 		exit(0);
 	}
 
@@ -133,14 +134,14 @@ int main(){
 				perror("send");
 				exit(0);
 			}else
-				printf("EXIT message sent to server");
+				printf("EXIT message sent to server\n");
 			needClose = 1;
 			if (close(sockfd) == -1)
 			{
 				perror("close");
 				exit(0);
 			}else
-				printf("It's OK to close the window Now OR enter ctrl+c");
+				printf("It's OK to close the window Now OR enter ctrl+c\n");
 		}
 		else if (strncmp(buffer, "WHO", 3) == 0) {
 			printf("Getting user list, pls hold on...\n");
@@ -153,7 +154,7 @@ int main(){
 		else if (strncmp(buffer, "#", 1) == 0) {
 			// If the user want to send a direct message to another user, e.g., aa wants to send direct message "Hello" to bb, aa needs to input "#bb:Hello"
 			if (send(sockfd, buffer, sizeof(buffer), 0)<0){
-				printf("Sending direct message failed...");
+				printf("Sending direct message failed...\n");
 				exit(1);
 			}
 		}
@@ -165,9 +166,10 @@ int main(){
 			strcpy(prefix, user_name);
 			prefix[strlen(user_name) + 1] = ':';
 			prefix[strlen(user_name) + 2] = ' ';
-			prefix[strlen(user_name) + 3] = '\0';
+			prefix[strlen(user_name) + 3] = '\n';
+			prefix[strlen(user_name) + 4] = '\0';
 			// for debug
-			printf("user_name: %s, length: %d", user_name, strlen(user_name));
+			printf("user_name: %s, length: %d\n", user_name, (int)strlen(user_name));
 			strcat(prefix, buffer);
 			nbytes = send(sockfd, prefix, sizeof(prefix), 0);
 			if (nbytes < 1)
