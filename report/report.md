@@ -26,10 +26,17 @@ The `WHO` command is straightforward to implement. First step is to construct a 
 A message that did not match any command above is regarded as broadcast request by the server. Then the server will format the message to add the information of user name of the sending client. Afterwards, the formatted message will be broadcasted by calling the customized function `broadcast()`. Please notice that this `broadcast()` function is different with the one `broadcast_online()` because this broadcast() function will take care of the offline users which means the formatted message will also be left to the message box of the offline users.
 <br>
 - **Other Compulsory Requirements**
-
+Firstly the client and server is connected by the TCP socket. For the server, its address is binded to the `INADDR_ANY` which means the server will listen to all the request from any ip address of the local host. And the client connects the server by using the loopback address which is `127.0.0.1`. Moreover, the server use the `setsockopt` function with `SO_REUSEADDR` parameter to enable the port reuse. This step could simplify the debug and test procedures. Server also uses the poll() function to achieve the synchronous I/O multiplexing for the concurrent communication with mult-clients. Since we do not want to block the recieving procedure for the clients while sending request to the server, a while loop function to recieve the message from server for all time is constructed as the recieving thread's task. Based on that, the recieving thread could be created by using the function `pthread_create()`. After the client exits, the client will change the variable `needClose` to be one. Then the recieving thread of the client will spontaneously exit by calling `pthread_exit()`.
 
 ## **Results**
+I followed the procudures from the [project demo](https://canvas.ust.hk/media_objects_iframe/m-3rSgvzMQFTqLwx3g8skD7B8A6iKrBKWn?type=video?type=video), and my implementation of the project gives the same responses. I will demonstrate and explain my result by some screenshots. The [picture](#pic1) below shows the interaction result untill the user aa exited. Left terminal window runs the server process, right top is the client process for aa, and the right bottom is the client process for bb. From the screenshot, we could obeserve that commands for registering new user, direct message, and exit with online broadcasting perform well.
+![#pic1](./images/aaEXIT.png) 
 
+The second [figure](#pic2) illustrates the result for the demo procudure right before re-login for user aa. Followed the first picture, the user bb successfully left an offline message to aa. After that, a new user cc is created. User cc used the `WHO` command to check the user list, and cc successfully recieved a message that showed aa is offline and bb is online. Then cc sent two direct messages to aa and bb for greeting. These two direct messages also validated the correct implementation for direct message to offline and online users.
+![#pic2](./images/cc.png)
+
+The last [screenshot](#pic3) shows the interaction outcome after aa rejoined the chatroom. I would like to clarify that the left bottom is the client process for aa, and the right top runs the client process for cc. Once the user aa login to the chatroom, the offline messages are sent to to aa from his txt file of the offline message box. And other online users recieved the broadcasting which indicates aa is online. Then the user cc recheck the user list by typing `WHO` command and gives the result that aa and bb both are online now. Lastly, aa send a broadcast by simply typing `Hello all, I am back`. Then bb and cc successfully recieved the broadcast message from aa.
+![#pic3](./images/last.png)
 
 ## **Bonus**
 
