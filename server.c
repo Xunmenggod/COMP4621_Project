@@ -35,9 +35,9 @@ void user_add(const user_info_t *user){
 	/***************************/
 	/* add the user to the list */
 	/**************************/
-	// listOfUsers[users_count]->password = user->password;
 	listOfUsers[users_count] = malloc(sizeof(user_info_t));
 	strcpy(listOfUsers[users_count]->username, user->username);
+	strcpy(listOfUsers[users_count]->password, user->password);
 	listOfUsers[users_count]->sockfd = user->sockfd;
 	listOfUsers[users_count]->state = user->state;
 	users_count += 1;
@@ -291,7 +291,7 @@ int main(){
 
 					// send welcome message
 					bzero(buffer, sizeof(buffer));
-					strcpy(buffer, "Welcome to the chat room!\nPlease enter a nickname.");
+					strcpy(buffer, "Welcome to the chat room!\nPlease select REGISTER or LOG_IN.");
 					if (send(newfd, buffer, sizeof(buffer), 0) == -1)
 						perror("send");
 
@@ -316,14 +316,22 @@ int main(){
 							/* Get the user name and add the user to the userlist*/
 							/**********************************/
 							char name[C_NAME_LEN] = {0};
+							char password[C_PASSWORD_LEN] = {0};
 							const char* delim = " ";
 							char* token = strtok(buffer, delim);
+							int count = 0;
 							while (token != NULL)
 							{
 								token = strtok(NULL, delim);
-								if (token != NULL)
+								if (count == 0)
 									strcpy(name, token);
+								if (token != NULL)
+									strcpy(password, token);
+								count++;
 							} 
+							// for debug
+							printf("A new user want to register with name:%s password:%s \n", name, password);
+
 							char user_file[C_NAME_LEN] = {0};
 							strcpy(user_file, name);
 							strcat(user_file, ".txt");
@@ -336,6 +344,7 @@ int main(){
 								user.sockfd = pfds[i].fd;
 								user.state = ONLINE;
 								strcpy(user.username, name);
+								strcpy(user.password, password);
 								user_add(&user);
 								printf("add user name: %s\n", name);
 								/********************************/
@@ -365,58 +374,125 @@ int main(){
 									perror("server sending");
 
 							} else {
+								// An existing user want to register again, ask to rename the set password
+								bzero(buffer, sizeof(buffer));
+								strcat(buffer, name);
+								strcat(buffer, " already have registered by other user!");
+								nbytes = send(pfds[i].fd, buffer, sizeof(buffer), 0);
+								if (nbytes < 1)
+									perror("server sending");
+							}
+							
+						} else if (strncmp(buffer, "LOG_IN", 6) == 0){
+							// handle the case for log in
+							char name[C_NAME_LEN] = {0};
+							char password[C_PASSWORD_LEN] = {0};
+							const char* delim = " ";
+							char* token = strtok(buffer, delim);
+							int count = 0;
+							while (token != NULL)
+							{
+								token = strtok(NULL, delim);
+								if (count == 0)
+									strcpy(name, token);
+								if (token != NULL)
+									strcpy(password, token);
+								count++;
+							}
+							// for debug
+							printf("A user want to log in with name:%s password:%s \n", name, password);
+
+							char user_file[C_NAME_LEN] = {0};
+							strcpy(user_file, name);
+							strcat(user_file, ".txt");
+
+							if (isNewUser(name))
+							{
+								// new user but want to login, ask to re-enter the user name and password
+								bzero(buffer, sizeof(buffer));
+								strcat(buffer, name);
+								strcat(buffer, " has not been registered, so you could not log in with this user name!");
+								nbytes = send(pfds[i].fd, buffer, sizeof(buffer), 0);
+								if (nbytes < 1)
+									perror("server sending");
+
+							}else
+							{
 								/********************************/
 								/* it's an existing user and we need to handle the login. Note the state of user,*/
 								/**********************************/
+								int isCorrect = 0;
 								for (j = 0; j < MAX_USERS; j++)
 								{
 									if (listOfUsers[j] == NULL)
 										break;
 									if (strcmp(name, listOfUsers[j]->username) == 0)
-									{
-										listOfUsers[j]->state = ONLINE;
-										// update the newly connected client sockfd for the existing user.
-										listOfUsers[j]->sockfd = pfds[i].fd;
+									{	
+										// for debug
+										printf("User password:%s\tinputted password:%s\t", listOfUsers[j]->password, password);
+										// check for the password
+										if (strcmp(password, listOfUsers[j]->password) == 0)
+										{
+											isCorrect = 1;
+											listOfUsers[j]->state = ONLINE;
+											// update the newly connected client sockfd for the existing user.
+											listOfUsers[j]->sockfd = pfds[i].fd;
+										}
 										break;
 									}
 								}
-
-								/********************************/
-								/* send the offline messages to the user and empty the message box*/
-								/**********************************/
-								bzero(buffer, sizeof(buffer));
-								strcat(buffer, "Welcome back! The message box contains: ");
-								nbytes = send(pfds[i].fd, buffer, sizeof(buffer), 0);
-								if (nbytes < 1)
-									perror("sending");
-								FILE* fp = fopen(user_file, "r");
-								FILE* temp = fopen("temp.txt", "w");
-								char offline_message[MAX];
-								while (fgets(offline_message, MAX, fp) != NULL)
+								// for debug 
+								printf("isCorrect:%d\n", isCorrect);
+								if (isCorrect)
 								{
-									int n = 0;
-									while (offline_message[n++] != '\n');
-									offline_message[n - 1] = '\0';
-									nbytes = send(pfds[i].fd, offline_message, sizeof(offline_message), 0);
+									/********************************/
+									/* send the offline messages to the user and empty the message box*/
+									/**********************************/
+									bzero(buffer, sizeof(buffer));
+									strcat(buffer, "Welcome back! The message box contains: ");
+									nbytes = send(pfds[i].fd, buffer, sizeof(buffer), 0);
 									if (nbytes < 1)
-										perror("sedning offline message");
-									else
-										printf("offline message: %s\n", offline_message);
-								}
-								fclose(fp);
-								fclose(temp);
-								remove(user_file);
-								rename("temp.txt", user_file);
+										perror("sending");
+									FILE* fp = fopen(user_file, "r");
+									FILE* temp = fopen("temp.txt", "w");
+									char offline_message[MAX];
+									while (fgets(offline_message, MAX, fp) != NULL)
+									{
+										int n = 0;
+										while (offline_message[n++] != '\n');
+										offline_message[n - 1] = '\0';
+										nbytes = send(pfds[i].fd, offline_message, sizeof(offline_message), 0);
+										if (nbytes < 1)
+											perror("sedning offline message");
+										else
+											printf("offline message: %s\n", offline_message);
+									}
+									fclose(fp);
+									fclose(temp);
+									remove(user_file);
+									rename("temp.txt", user_file);
 
-								// broadcast the welcome message (send to everyone except the listener)
-								bzero(buffer, sizeof(buffer));
-								strcat(buffer, name);
-								strcat(buffer, " is online!");
-								/*****************************/
-								/* Broadcast the welcome message*/
-								/*****************************/
-								broadcast_online(buffer, sizeof(buffer), pfds[i].fd, OTHERS);
+									// broadcast the welcome message (send to everyone except the listener)
+									bzero(buffer, sizeof(buffer));
+									strcat(buffer, name);
+									strcat(buffer, " is online!");
+									/*****************************/
+									/* Broadcast the welcome message*/
+									/*****************************/
+									broadcast_online(buffer, sizeof(buffer), pfds[i].fd, OTHERS);
+								}else
+								{
+									// wrong password
+									bzero(buffer, sizeof(buffer));
+									strcat(buffer, "WRONG password for ");
+									strcat(buffer, name);
+									strcat(buffer, "!");
+									nbytes = send(pfds[i].fd, buffer, sizeof(buffer), 0);
+									if (nbytes < 1)
+										perror("server sending");
+								}
 							}
+
 						} else if (strncmp(buffer, "EXIT", 4)==0){
 							printf("Got exit message. Removing user from system\n");
 							// send leave message to the other members

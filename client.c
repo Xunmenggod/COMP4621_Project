@@ -41,6 +41,14 @@ void recv_server_msg_handler() {
 	}
 }
 
+void read_keyboard(char* buffer, const int size)
+{
+	bzero(buffer, size);
+	int n = 0;
+	while ((buffer[n++] = getchar()) != '\n');
+	buffer[n - 1] = '\0';
+}
+
 int main(){
     int n;
 	int nbytes;
@@ -82,26 +90,130 @@ int main(){
 	/* Note that we concatenate "REGISTER" before the name to notify the server it is the register/login message*/
 	/*******************************************/
 	char user_name[C_NAME_LEN] = {0};
+	char password[C_PASSWORD_LEN] = {0};
+	int selection;
 	n = 0;
-	while ((user_name[n++] = getchar()) != '\n');
-	user_name[n - 1] = '\0';
-	bzero(buffer, sizeof(buffer));
-	strcpy(buffer, "REGISTER ");
+	read_keyboard(buffer, sizeof(buffer));
+	while (strcmp(buffer, "REGISTER") != 0 && strcmp(buffer, "LOG_IN") != 0)
+	{
+		printf("There is no such selection, please check your format and reselect\n");
+		bzero(buffer, sizeof(buffer));
+		read_keyboard(buffer, sizeof(buffer));
+	}
+	printf("Please first enter the nick name\n");
+	read_keyboard(user_name, sizeof(user_name));
+	if (strcmp(buffer, "REGISTER") == 0)
+	{
+		selection = 0;
+	
+		printf("Please set the password for your account\n");
+	}else if (strcmp(buffer, "LOG_IN") == 0)
+	{
+		selection = 1;
+		printf("Please enter the password for login\n");
+	}
+	read_keyboard(password, sizeof(password));
+
+	// bzero(buffer, sizeof(buffer));
+	// strcpy(buffer, "REGISTER ");
+	strcat(buffer , " ");
 	strcat(buffer, user_name);
+	strcat(buffer, " ");
+	strcat(buffer, password);
 	nbytes = send(sockfd, buffer, sizeof(buffer), 0);
 	if (nbytes < 1) 
 	{
 		perror("send");
 		close(sockfd);
 		exit(0);
-	}else
-		printf("Register/Login message sent to server\n\n");
+	}
 
     // receive welcome message "welcome xx to joint the chatroom. A new account has been created." (registration case) or "welcome back! The message box contains:..." (login case)
     bzero(buffer, sizeof(buffer));
     if (recv(sockfd, buffer, sizeof(buffer), 0)==-1){
         perror("recv");
     }
+
+	if (selection)
+	{
+		// log in error handling
+		int verficationTimes = 0;
+		while (strncmp(buffer, "Welcome", 7) != 0)
+		{
+			if (strncmp(buffer, "WRONG", 5) == 0)
+			{
+				verficationTimes++;
+				if (verficationTimes == RETRY_LIMITS)
+				{	
+					int sleepTime = 10;
+					verficationTimes = 0;
+					printf("Wrong password for so many times, please re-enter the password after %ds\n", sleepTime);
+					usleep(10 * 1e6);
+					printf("Now, you can re-enter the password\n");
+					continue;
+				}else
+					printf("%s\n", buffer);
+				read_keyboard(password, sizeof(password));
+			}else
+			{
+				printf("%s \n",buffer);
+				printf("Please first re-enter the nickname\n");
+				read_keyboard(user_name, sizeof(user_name));
+				printf("Please then enter the password for the new nickname \n");
+				read_keyboard(password, sizeof(password));
+			}
+			// send and recieve between client and server
+			bzero(buffer, sizeof(buffer));
+			strcat(buffer, "LOG_IN ");
+			strcat(buffer, user_name);
+			strcat(buffer, " ");
+			strcat(buffer, password);
+			nbytes = send(sockfd, buffer, sizeof(buffer), 0);
+			if (nbytes < 1) 
+			{
+				perror("send");
+				close(sockfd);
+				exit(0);
+			}
+			bzero(buffer, sizeof(buffer));
+			if (recv(sockfd, buffer, sizeof(buffer), 0)==-1){
+				perror("recv");
+			}
+		}
+	}else
+	{
+		// register error handling
+		while(strncmp(buffer, "Welcome", 7) != 0)
+		{
+			printf("%s\n", buffer);
+			printf("Please first re-enter the nickname\n");
+			read_keyboard(user_name, sizeof(user_name));
+			printf("Please then set the password for the new nickname \n");
+			read_keyboard(password, sizeof(password));
+			// send and recieve between client and server
+			bzero(buffer, sizeof(buffer));
+			strcat(buffer, "REGISTER ");
+			strcat(buffer, user_name);
+			strcat(buffer, " ");
+			strcat(buffer, password);
+			nbytes = send(sockfd, buffer, sizeof(buffer), 0);
+			if (nbytes < 1) 
+			{
+				perror("send");
+				close(sockfd);
+				exit(0);
+			}
+			bzero(buffer, sizeof(buffer));
+			if (recv(sockfd, buffer, sizeof(buffer), 0)==-1){
+				perror("recv");
+			}
+		}
+		printf("%s\n", buffer);
+		bzero(buffer, sizeof(buffer));
+		if (recv(sockfd, buffer, sizeof(buffer), 0)==-1){
+			perror("recv");
+		}
+	}
     printf("%s\n", buffer);
 
     /*****************************************************/

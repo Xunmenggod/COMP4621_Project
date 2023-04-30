@@ -3,6 +3,8 @@
 ZHAO Yu Xuan (20497819)
 
 GitHub Repo: [Access Link](https://github.com/Xunmenggod/COMP4621_Project)
+
+Complete Functionality Demo: [Video Link](...)
 ## **Introduction**
 In this project, I am required to implement a server-based multiparty chatroom to enable the concurrent communication among different users via network. During the course, we have learnt several ways to achieve the concurrent communication for multiple clients. It could be concluded with two categories which are thread/process creation in the server side to handle different users and synchronous I/O multiplexing by using `poll()`, `select()`, and the like. Each method has their own pros and cons, selection should be determined according to the restriction and purpose of the development. For this project, we are mandated to use the `poll()` function to handle multiple concurrent clients.
 
@@ -39,6 +41,12 @@ The last [screenshot](#pic3) shows the interaction outcome after aa rejoined the
 ![#pic3](./images/last.png)
 
 ## **Bonus**
+- **Password**
+In order
 
+- **GUI**
+***Not Implemented***
 
+- **Interruption or Restart Handling**
+***Not Implemented***
 ## **Future Work**
