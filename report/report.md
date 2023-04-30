@@ -4,7 +4,7 @@ ZHAO Yu Xuan (20497819)
 
 GitHub Repo: [Access Link](https://github.com/Xunmenggod/COMP4621_Project)
 
-Complete Functionality Demo: [Video Link](...)
+Complete Functionality Demo: [Video Link](https://www.youtube.com/watch?v=-yo-UJ9H3Z0)
 ## **Introduction**
 In this project, I am required to implement a server-based multiparty chatroom to enable the concurrent communication among different users via network. During the course, we have learnt several ways to achieve the concurrent communication for multiple clients. It could be concluded with two categories which are thread/process creation in the server side to handle different users and synchronous I/O multiplexing by using `poll()`, `select()`, and the like. Each method has their own pros and cons, selection should be determined according to the restriction and purpose of the development. For this project, we are mandated to use the `poll()` function to handle multiple concurrent clients.
 
@@ -42,7 +42,10 @@ The last [screenshot](#pic3) shows the interaction outcome after aa rejoined the
 
 ## **Bonus**
 - **Password**
-In order
+In order to enable the password protection for each user, I added a command for `LOG_IN` to differentiate with the REGISTER. For the registered part, user is required to input a unregistered nickname and a password. If the register message including nickname and the password does not pass the check from the server which means the nickname has already existed in the `listOfUsers`, the server will simply send back the message to notify the client. Then the user will be asked to redo the previous procedure until the server send back the welcome message. The follwing [picture](#register) shows the result of my implementation for **REGISTER**.
+![#register](./images/register.png) 
+For log in proceduer, the message also has to pass the check from the server. But the check contains two criteria which are the user name should be registered in the `listOfUsers` and the correct password respectively. If the message from the client does not pass the first criterion, the server will notify the situation and require another set of the user name and password. Regarding with the second case, the server will tell the client that the provided password is not match with the maintained list in server side. Moreover, the client still need to re-enter the password for the user name. The [figure](#login) illustrates the same logic for the **LOG_IN** procedure.
+![#login](./images/login.png)
 
 - **GUI**
 ***Not Implemented***
@@ -50,3 +53,4 @@ In order
 - **Interruption or Restart Handling**
 ***Not Implemented***
 ## **Future Work**
+In viewing of the whole development for this project, I am quite satisfied with the current result. However there are still some other tasks or work that could be done for optimization and achieving other functionalities. Firstly, the other two items for bonus could be implemented latter. What's more, the data structure for user list maintained by the server could be changed to hash table that could make the name searching run in O(1) time. Furthermoer, the user password could be also assigned to the user's specific offline message box (`txt file`) to restrict the file access. Last but not least, the encryption of the user password during the communication is a crucial task for user account security.

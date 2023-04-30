@@ -31,3 +31,10 @@ make
 |        Broadcasting message        |  DONE  |                       NULL                       |
 |        Password for register        |  DONE  |                       NULL                       |
 |         Password for log in         | ~~Buggy~~ DONE |      Correct password is regarded as wrong (Fixed) |
+
+## TODO list
+- [ ] GUI implementation with QT framework
+- [ ] Exception handling for server interruption and restart
+- [ ] Use the data structure of hash table to maintain the user list
+- [ ] Add the password to restrict access of the offline message box (`txt file`)
+- [ ] Encrypt the password for the user during communication 
